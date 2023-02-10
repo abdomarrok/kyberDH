@@ -2,8 +2,20 @@
  *
  * Copyright (C) 2015-2020 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
  */
+const crypto = require('crypto').webcrypto;
 
-(function() {
+var getGlobal = function () {
+	// the only reliable means to get the global object is
+	// `Function('return this')()`
+	// However, this causes CSP violations in Chrome apps.
+	if (typeof self !== 'undefined') { return self; }
+	if (typeof window !== 'undefined') { return window; }
+	if (typeof global !== 'undefined') { return global; }
+	throw new Error('unable to locate global object');
+};
+
+
+
 	function gf(init) {
 		var r = new Float64Array(16);
 		if (init) {
@@ -12,7 +24,7 @@
 		}
 		return r;
 	}
-
+	
 	function pack(o, n) {
 		var b, m = gf(), t = gf();
 		for (var i = 0; i < 16; ++i)
@@ -36,7 +48,7 @@
 			o[2 * i + 1] = t[i] >> 8;
 		}
 	}
-
+	
 	function carry(o) {
 		var c;
 		for (var i = 0; i < 16; ++i) {
@@ -44,7 +56,7 @@
 			o[i] &= 0xffff;
 		}
 	}
-
+	
 	function cswap(p, q, b) {
 		var t, c = ~(b - 1);
 		for (var i = 0; i < 16; ++i) {
@@ -53,17 +65,17 @@
 			q[i] ^= t;
 		}
 	}
-
+	
 	function add(o, a, b) {
 		for (var i = 0; i < 16; ++i)
 			o[i] = (a[i] + b[i]) | 0;
 	}
-
+	
 	function subtract(o, a, b) {
 		for (var i = 0; i < 16; ++i)
 			o[i] = (a[i] - b[i]) | 0;
 	}
-
+	
 	function multmod(o, a, b) {
 		var t = new Float64Array(31);
 		for (var i = 0; i < 16; ++i) {
@@ -77,7 +89,7 @@
 		carry(o);
 		carry(o);
 	}
-
+	
 	function invert(o, i) {
 		var c = gf();
 		for (var a = 0; a < 16; ++a)
@@ -90,12 +102,12 @@
 		for (var a = 0; a < 16; ++a)
 			o[a] = c[a];
 	}
-
+	
 	function clamp(z) {
 		z[31] = (z[31] & 127) | 64;
 		z[0] &= 248;
 	}
-
+	
 	function generatePublicKey(privateKey) {
 		var r, z = new Uint8Array(32);
 		var a = gf([1]),
@@ -139,46 +151,48 @@
 		pack(z, a);
 		return z;
 	}
-
-	function generatePresharedKey() {
+	
+	  function generatePresharedKey() {
 		var privateKey = new Uint8Array(32);
-		window.crypto.getRandomValues(privateKey);
+	crypto.getRandomValues(privateKey);
 		return privateKey;
 	}
-
+	
 	function generatePrivateKey() {
 		var privateKey = generatePresharedKey();
 		clamp(privateKey);
 		return privateKey;
 	}
-
+	
 	function encodeBase64(dest, src) {
 		var input = Uint8Array.from([(src[0] >> 2) & 63, ((src[0] << 4) | (src[1] >> 4)) & 63, ((src[1] << 2) | (src[2] >> 6)) & 63, src[2] & 63]);
 		for (var i = 0; i < 4; ++i)
 			dest[i] = input[i] + 65 +
-			(((25 - input[i]) >> 8) & 6) -
-			(((51 - input[i]) >> 8) & 75) -
-			(((61 - input[i]) >> 8) & 15) +
-			(((62 - input[i]) >> 8) & 3);
+				(((25 - input[i]) >> 8) & 6) -
+				(((51 - input[i]) >> 8) & 75) -
+				(((61 - input[i]) >> 8) & 15) +
+				(((62 - input[i]) >> 8) & 3);
 	}
-
+	
 	function keyToBase64(key) {
 		var i, base64 = new Uint8Array(44);
 		for (i = 0; i < 32 / 3; ++i)
-			encodeBase64(base64.subarray(i * 4), key.subarray(i * 3));
+			encodeBase64(base64.subarray(i * 4), Uint8Array.from(key).subarray(i * 3));
 		encodeBase64(base64.subarray(i * 4), Uint8Array.from([key[i * 3 + 0], key[i * 3 + 1], 0]));
 		base64[43] = 61;
 		return String.fromCharCode.apply(null, base64);
 	}
+	
 
-	window.wireguard = {
-		generateKeypair: function() {
-			var privateKey = generatePrivateKey();
-			var publicKey = generatePublicKey(privateKey);
-			return {
-				publicKey: keyToBase64(publicKey),
-				privateKey: keyToBase64(privateKey)
-			};
-		}
-	};
-})();
+exports.wireguardKeypair= getGlobal.wireguard = {
+	generateKeypair: function () {
+	
+		var privateKey = generatePrivateKey();
+		var publicKey = generatePublicKey(privateKey);
+		return {
+			publicKey: keyToBase64(publicKey),
+			privateKey: keyToBase64(privateKey)
+		};
+	}
+};
+

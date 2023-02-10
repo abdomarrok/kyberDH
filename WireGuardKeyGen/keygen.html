@@ -8,6 +8,7 @@
 function sendPubkeyToServer(pubkey, username, password)
 {
 	var node = document.createElement("li");
+
 	node.innerText = "Sending " + username + ":" + password + " to server for new pubkey " + pubkey + "...";
 	document.body.appendChild(node);
 
