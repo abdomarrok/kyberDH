@@ -18,6 +18,10 @@ let c_ss = kyber.Encrypt512(bob_pk);
 let encapsulation_c = c_ss[0];//what we send to reciver (bob) is  encapsulation (c)
 let symmetric_key1 = c_ss[1];// the secret 
 
+
+
+
+console.log(symmetric_key1)
 // To decapsulate and obtain the same symmetric key
 let symmetric_key2 = kyber.Decrypt512(encapsulation_c, bob_sk);//bob uses its private key and c to get the same secret
 
